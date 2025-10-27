@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "SolarEdge Monitor",
+  "version": "1.0.0",
+  "description": "Monitor your SolarEdge solar installation with real-time power and energy statistics",
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "https://monitoringapi.solaredge.com/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "options_page": "settings.html",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
+

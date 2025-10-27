@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SolarEdge Monitor - Settings</title>
+  <link rel="stylesheet" href="settings.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>⚙️ SolarEdge Monitor Settings</h1>
+    </header>
+
+    <div class="content">
+      <div id="success-message" class="success hidden">
+        ✓ Settings saved successfully!
+      </div>
+
+      <form id="settings-form">
+        <div class="form-group">
+          <label for="api-key">API Key</label>
+          <input
+            type="text"
+            id="api-key"
+            name="apiKey"
+            required
+            placeholder="Enter your SolarEdge API key"
+          >
+          <small class="help-text">
+            Get your API key from the SolarEdge monitoring portal
+          </small>
+        </div>
+
+        <div class="form-group">
+          <label for="site-id">Site ID</label>
+          <input
+            type="text"
+            id="site-id"
+            name="siteId"
+            required
+            placeholder="Enter your site ID"
+          >
+          <small class="help-text">
+            Find your site ID in the SolarEdge monitoring portal URL
+          </small>
+        </div>
+
+        <div class="info-box">
+          <h3>📖 How to get your credentials:</h3>
+          <ol>
+            <li>Log in to the <a href="https://monitoring.solaredge.com" target="_blank">SolarEdge Monitoring Portal</a></li>
+            <li>Navigate to Admin > Site Access</li>
+            <li>Generate or copy your API key</li>
+            <li>Find your Site ID in the URL: monitoring.solaredge.com/solaredge-web/p/site/<strong>SITE_ID</strong></li>
+          </ol>
+        </div>
+
+        <div class="button-group">
+          <button type="submit" class="btn btn-primary">Save Settings</button>
+          <button type="button" id="test-btn" class="btn btn-secondary">Test Connection</button>
+        </div>
+      </form>
+
+      <div id="test-result" class="test-result hidden"></div>
+    </div>
+  </div>
+
+  <script src="settings.js"></script>
+</body>
+</html>
+
