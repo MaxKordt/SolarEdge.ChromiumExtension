@@ -109,6 +109,12 @@ header h1 {
   max-height: 150px !important;
 }
 
+#todayEnergyChart {
+  width: 100% !important;
+  height: 150px !important;
+  max-height: 150px !important;
+}
+
 #dailyEnergyChart {
   width: 100% !important;
   height: 150px !important;
