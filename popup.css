@@ -59,33 +59,36 @@ header h1 {
 
 .stats-section {
   margin-bottom: 25px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
 }
 
 .stat-card {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
-  padding: 25px;
+  padding: 20px;
   border-radius: 12px;
   text-align: center;
   box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
 }
 
 .stat-label {
-  font-size: 14px;
+  font-size: 12px;
   opacity: 0.9;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
   text-transform: uppercase;
   letter-spacing: 1px;
 }
 
 .stat-value {
-  font-size: 42px;
+  font-size: 32px;
   font-weight: 700;
   margin-bottom: 5px;
 }
 
 .stat-unit {
-  font-size: 16px;
+  font-size: 14px;
   opacity: 0.9;
 }
 

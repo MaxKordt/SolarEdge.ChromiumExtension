@@ -57,6 +57,7 @@ class PopupController {
       content: document.getElementById('content'),
       error: document.getElementById('error-message'),
       currentPower: document.getElementById('current-power'),
+      totalEnergy: document.getElementById('total-energy'),
       lastUpdate: document.getElementById('last-update-time'),
       refreshBtn: document.getElementById('refresh-btn'),
       settingsBtn: document.getElementById('settings-btn'),
@@ -106,6 +107,11 @@ class PopupController {
         time: new Date(item.date),
         value: item.value / 1000 // Convert W to kW
       }));
+    // Calculate total energy (sum of all power values * time interval)
+    // Assuming 15-minute intervals, convert kW to kWh
+    const totalEnergy = chartData.reduce((sum, item) => sum + item.value, 0) * 0.25; // 15min = 0.25h
+    this.elements.totalEnergy.textContent = totalEnergy.toFixed(2);
+
 
     // Format time labels
     const labels = chartData.map(item => {
