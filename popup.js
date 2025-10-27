@@ -18,28 +18,24 @@ class SolarEdgeAPI {
     return data;
   }
 
-  async getEnergyLast24Hours() {
-    const endTime = new Date();
-    const startTime = new Date(endTime.getTime() - 24 * 60 * 60 * 1000);
+  async getOverview() {
+    const url = `${this.baseUrl}/site/${this.siteId}/overview?api_key=${this.apiKey}`;
+    console.log('Fetching overview from:', url.replace(this.apiKey, 'API_KEY_HIDDEN'));
 
-    const formatDate = (date) => {
-      return date.toISOString().split('T')[0] + ' ' +
-             date.toTimeString().split(' ')[0];
-    };
+    try {
+      const response = await fetch(url);
 
-    const url = `${this.baseUrl}/site/${this.siteId}/power?` +
-                `startTime=${encodeURIComponent(formatDate(startTime))}&` +
-                `endTime=${encodeURIComponent(formatDate(endTime))}&` +
-                `api_key=${this.apiKey}`;
+      if (!response.ok) {
+        throw new Error(`API Error: ${response.status} ${response.statusText}`);
+      }
 
-    const response = await fetch(url);
-
-    if (!response.ok) {
-      throw new Error(`API Error: ${response.status} ${response.statusText}`);
+      const data = await response.json();
+      console.log('Overview API Response:', data);
+      return data;
+    } catch (error) {
+      console.error('Error fetching overview:', error);
+      throw error;
     }
-
-    const data = await response.json();
-    return data;
   }
 
   async getEnergyToday() {
@@ -56,6 +52,7 @@ class SolarEdgeAPI {
                 `timeUnit=QUARTER_OF_AN_HOUR&` +
                 `api_key=${this.apiKey}`;
 
+    console.log('Fetching today energy from:', url.replace(this.apiKey, 'API_KEY_HIDDEN'));
     const response = await fetch(url);
 
     if (!response.ok) {
@@ -63,6 +60,9 @@ class SolarEdgeAPI {
     }
 
     const data = await response.json();
+    console.log('Energy Today API Response:', data);
+    console.log('Energy unit:', data.energy?.unit);
+    console.log('Sample values:', data.energy?.values?.slice(0, 5));
     return data;
   }
 
@@ -94,7 +94,6 @@ class SolarEdgeAPI {
 // UI Controller
 class PopupController {
   constructor() {
-    this.chart = null;
     this.todayEnergyChart = null;
     this.energyChart = null;
     this.cacheKey = 'solarEdgeCache';
@@ -114,7 +113,6 @@ class PopupController {
       lastUpdate: document.getElementById('last-update-time'),
       refreshBtn: document.getElementById('refresh-btn'),
       settingsBtn: document.getElementById('settings-btn'),
-      chartCanvas: document.getElementById('energyChart'),
       todayEnergyCanvas: document.getElementById('todayEnergyChart'),
       dailyEnergyCanvas: document.getElementById('dailyEnergyChart')
     };
@@ -193,94 +191,44 @@ class PopupController {
     this.elements.currentPower.textContent = (currentPower / 1000).toFixed(2);
   }
 
-  updateEnergyChart(energyData) {
-    const values = energyData.power?.values || [];
-
-    // Filter out null values and format data
-    const chartData = values
-      .filter(item => item.value !== null)
-      .map(item => ({
-        time: new Date(item.date),
-        value: item.value / 1000 // Convert W to kW
-      }));
-    // Calculate total energy (sum of all power values * time interval)
-    // Assuming 15-minute intervals, convert kW to kWh
-    const totalEnergy = chartData.reduce((sum, item) => sum + item.value, 0) * 0.25; // 15min = 0.25h
-    this.elements.totalEnergy.textContent = totalEnergy.toFixed(2);
-
-
-    // Format time labels
-    const labels = chartData.map(item => {
-      const hour = item.time.getHours();
-      const minute = item.time.getMinutes();
-      return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-    });
-
-    const data = chartData.map(item => item.value);
-
-    // Destroy previous chart if exists
-    if (this.chart) {
-      this.chart.destroy();
+  updateEnergyFromOverview(overviewData) {
+    // Handle null or undefined overview data
+    if (!overviewData) {
+      console.warn('No overview data available, will use calculated value from intervals');
+      return null; // Signal to use calculation fallback
     }
 
-    // Create new chart
-    const ctx = this.elements.chartCanvas.getContext('2d');
-    this.chart = new Chart(ctx, {
-      type: 'bar',
-      data: {
-        labels: labels,
-        datasets: [{
-          label: 'Power (kW)',
-          data: data,
-          borderColor: '#667eea',
-          backgroundColor: 'rgba(102, 126, 234, 0.7)',
-          borderWidth: 1
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        animation: false,
-        onResize: null,
-        plugins: {
-          legend: {
-            display: false
-          },
-          tooltip: {
-            mode: 'index',
-            intersect: false,
-            callbacks: {
-              label: function(context) {
-                return `${context.parsed.y.toFixed(2)} kW`;
-              }
-            }
-          }
-        },
-        scales: {
-          x: {
-            display: true,
-            ticks: {
-              maxRotation: 45,
-              minRotation: 45,
-              maxTicksLimit: 8
-            }
-          },
-          y: {
-            display: true,
-            beginAtZero: true,
-            ticks: {
-              callback: function(value) {
-                return value.toFixed(1) + ' kW';
-              }
-            }
-          }
-        }
-      }
-    });
+    // Extract today's energy from overview data
+    // The overview endpoint returns different structures depending on the API version
+    console.log('Overview data structure:', JSON.stringify(overviewData, null, 2));
+
+    let todayEnergy = 0;
+
+    // Try different possible structures
+    if (overviewData?.overview?.lastDayData?.energy !== undefined) {
+      todayEnergy = overviewData.overview.lastDayData.energy;
+    } else if (overviewData?.lastDayData?.energy !== undefined) {
+      todayEnergy = overviewData.lastDayData.energy;
+    } else if (overviewData?.overview?.lastDayData !== undefined) {
+      // Sometimes the energy is in a different field
+      const lastDay = overviewData.overview.lastDayData;
+      todayEnergy = lastDay.energy || lastDay.Energy || 0;
+    } else {
+      console.warn('Could not find energy data in overview response.');
+      console.warn('Available fields:', Object.keys(overviewData || {}));
+      // Will calculate from detailed data instead
+      return null; // Signal to use calculation fallback
+    }
+
+    console.log('Today Energy from Overview API:', todayEnergy, 'Wh');
+    // Convert Wh to kWh
+    this.elements.totalEnergy.textContent = (todayEnergy / 1000).toFixed(2);
+    return true;
   }
 
-  updateTodayEnergyChart(energyData) {
+  updateTodayEnergyChart(energyData, updateStatCard = false) {
     const values = energyData.energy?.values || [];
+    console.log('Processing today energy data, values count:', values.length);
 
     // Filter out null values and format data
     const chartData = values
@@ -289,6 +237,17 @@ class PopupController {
         time: new Date(item.date),
         value: item.value / 1000 // Convert Wh to kWh
       }));
+
+    console.log('Filtered chartData count:', chartData.length);
+    console.log('Sample converted values:', chartData.slice(0, 5).map(d => ({ time: d.time.toLocaleTimeString(), value: d.value })));
+    console.log('Energy unit from API:', energyData.energy?.unit);
+
+    // Calculate and update stat card if requested (fallback when overview fails)
+    if (updateStatCard) {
+      const totalEnergy = chartData.reduce((sum, item) => sum + item.value, 0);
+      console.log('Total Energy Today (calculated from intervals):', totalEnergy, 'kWh');
+      this.elements.totalEnergy.textContent = totalEnergy.toFixed(2);
+    }
 
     // Format time labels (e.g., "08:00", "08:15")
     const labels = chartData.map(item => {
@@ -464,8 +423,8 @@ class PopupController {
         if (cachedData) {
           console.log('Using cached data');
           this.updateCurrentPower(cachedData.powerData);
-          this.updateEnergyChart(cachedData.energyData24h);
-          this.updateTodayEnergyChart(cachedData.todayEnergyData);
+          const overviewSuccess = this.updateEnergyFromOverview(cachedData.overviewData);
+          this.updateTodayEnergyChart(cachedData.todayEnergyData, !overviewSuccess);
           this.updateDailyEnergyChart(cachedData.dailyEnergyData);
           this.updateLastUpdateTime();
           this.showContent();
@@ -476,26 +435,35 @@ class PopupController {
       console.log('Fetching fresh data from API');
       const api = new SolarEdgeAPI(settings.apiKey, settings.siteId);
 
-      // Fetch data in parallel
-      const [powerData, energyData24h, todayEnergyData, dailyEnergyData] = await Promise.all([
+      // Fetch data in parallel, but make overview optional
+      let overviewData = null;
+      const dataPromises = [
         api.getCurrentPower(),
-        api.getEnergyLast24Hours(),
         api.getEnergyToday(),
         api.getEnergyData()
-      ]);
+      ];
+
+      // Try to get overview, but don't fail if it's not available
+      try {
+        overviewData = await api.getOverview();
+      } catch (overviewError) {
+        console.warn('Overview API not available, will calculate from detailed data:', overviewError.message);
+      }
+
+      const [powerData, todayEnergyData, dailyEnergyData] = await Promise.all(dataPromises);
 
       // Cache the data
       await this.setCachedData({
         powerData,
-        energyData24h,
+        overviewData,
         todayEnergyData,
         dailyEnergyData
       });
 
       // Update UI
       this.updateCurrentPower(powerData);
-      this.updateEnergyChart(energyData24h);
-      this.updateTodayEnergyChart(todayEnergyData);
+      const overviewSuccess = this.updateEnergyFromOverview(overviewData);
+      this.updateTodayEnergyChart(todayEnergyData, !overviewSuccess); // Use calculated value if overview failed
       this.updateDailyEnergyChart(dailyEnergyData);
       this.updateLastUpdateTime();
 
@@ -509,8 +477,8 @@ class PopupController {
         if (cachedData) {
           console.log('Rate limited - using cached data');
           this.updateCurrentPower(cachedData.powerData);
-          this.updateEnergyChart(cachedData.energyData24h);
-          this.updateTodayEnergyChart(cachedData.todayEnergyData);
+          const overviewSuccess = this.updateEnergyFromOverview(cachedData.overviewData);
+          this.updateTodayEnergyChart(cachedData.todayEnergyData, !overviewSuccess);
           this.updateDailyEnergyChart(cachedData.dailyEnergyData);
           this.updateLastUpdateTime();
           this.showContent();
