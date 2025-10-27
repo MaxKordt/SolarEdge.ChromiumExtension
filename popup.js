@@ -97,8 +97,11 @@ class PopupController {
     this.chart = null;
     this.todayEnergyChart = null;
     this.energyChart = null;
+    this.cacheKey = 'solarEdgeCache';
+    this.cacheExpiryMinutes = 15; // Fetch data only once every 15 minutes
     this.initElements();
     this.attachListeners();
+    this.setupAutoRefresh();
   }
 
   initElements() {
@@ -118,9 +121,50 @@ class PopupController {
   }
 
   attachListeners() {
-    this.elements.refreshBtn.addEventListener('click', () => this.loadData());
+    this.elements.refreshBtn.addEventListener('click', () => this.loadData(true)); // Force refresh on button click
     this.elements.settingsBtn.addEventListener('click', () => {
       chrome.runtime.openOptionsPage();
+    });
+  }
+
+  setupAutoRefresh() {
+    // Auto-refresh every 15 minutes
+    setInterval(() => {
+      this.loadData(false);
+    }, 15 * 60 * 1000);
+  }
+
+  async getCachedData() {
+    return new Promise((resolve) => {
+      chrome.storage.local.get([this.cacheKey], (result) => {
+        const cached = result[this.cacheKey];
+        if (cached && cached.timestamp) {
+          const age = Date.now() - cached.timestamp;
+          const maxAge = this.cacheExpiryMinutes * 60 * 1000;
+          if (age < maxAge) {
+            resolve(cached.data);
+            return;
+          }
+        }
+        resolve(null);
+      });
+    });
+  }
+
+  async setCachedData(data) {
+    return new Promise((resolve) => {
+      chrome.storage.local.set({
+        [this.cacheKey]: {
+          timestamp: Date.now(),
+          data: data
+        }
+      }, resolve);
+    });
+  }
+
+  async clearCache() {
+    return new Promise((resolve) => {
+      chrome.storage.local.remove([this.cacheKey], resolve);
     });
   }
 
@@ -402,7 +446,7 @@ class PopupController {
     this.elements.lastUpdate.textContent = now.toLocaleTimeString();
   }
 
-  async loadData() {
+  async loadData(forceRefresh = false) {
     try {
       this.showLoading();
 
@@ -414,6 +458,22 @@ class PopupController {
         return;
       }
 
+      // Check cache first unless force refresh
+      if (!forceRefresh) {
+        const cachedData = await this.getCachedData();
+        if (cachedData) {
+          console.log('Using cached data');
+          this.updateCurrentPower(cachedData.powerData);
+          this.updateEnergyChart(cachedData.energyData24h);
+          this.updateTodayEnergyChart(cachedData.todayEnergyData);
+          this.updateDailyEnergyChart(cachedData.dailyEnergyData);
+          this.updateLastUpdateTime();
+          this.showContent();
+          return;
+        }
+      }
+
+      console.log('Fetching fresh data from API');
       const api = new SolarEdgeAPI(settings.apiKey, settings.siteId);
 
       // Fetch data in parallel
@@ -423,6 +483,14 @@ class PopupController {
         api.getEnergyToday(),
         api.getEnergyData()
       ]);
+
+      // Cache the data
+      await this.setCachedData({
+        powerData,
+        energyData24h,
+        todayEnergyData,
+        dailyEnergyData
+      });
 
       // Update UI
       this.updateCurrentPower(powerData);
@@ -434,6 +502,23 @@ class PopupController {
       this.showContent();
     } catch (error) {
       console.error('Error loading data:', error);
+
+      // If rate limited, try to use cached data
+      if (error.message.includes('429')) {
+        const cachedData = await this.getCachedData();
+        if (cachedData) {
+          console.log('Rate limited - using cached data');
+          this.updateCurrentPower(cachedData.powerData);
+          this.updateEnergyChart(cachedData.energyData24h);
+          this.updateTodayEnergyChart(cachedData.todayEnergyData);
+          this.updateDailyEnergyChart(cachedData.dailyEnergyData);
+          this.updateLastUpdateTime();
+          this.showContent();
+          this.showError('Rate limited. Showing cached data. Next update available in 15 minutes.');
+          return;
+        }
+      }
+
       this.showError(`Failed to load data: ${error.message}`);
     }
   }
