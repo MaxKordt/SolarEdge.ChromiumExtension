@@ -1,5 +1,7 @@
 # ☀️ SolarEdge Monitor - Chrome Extension
 
+\* A little test project with copilot :)
+
 A beautiful and intuitive browser extension for monitoring your SolarEdge solar installation directly from your browser.
 
 ## Features
