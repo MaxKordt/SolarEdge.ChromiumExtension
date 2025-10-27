@@ -124,18 +124,15 @@ class PopupController {
     // Create new chart
     const ctx = this.elements.chartCanvas.getContext('2d');
     this.chart = new Chart(ctx, {
-      type: 'line',
+      type: 'bar',
       data: {
         labels: labels,
         datasets: [{
           label: 'Power (kW)',
           data: data,
           borderColor: '#667eea',
-          backgroundColor: 'rgba(102, 126, 234, 0.1)',
-          tension: 0.4,
-          fill: true,
-          pointRadius: 2,
-          pointHoverRadius: 5
+          backgroundColor: 'rgba(102, 126, 234, 0.7)',
+          borderWidth: 1
         }]
       },
       options: {
