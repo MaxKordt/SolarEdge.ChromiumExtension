@@ -41,12 +41,37 @@ class SolarEdgeAPI {
     const data = await response.json();
     return data;
   }
+
+  async getEnergyData() {
+    const endDate = new Date();
+    const startDate = new Date(endDate.getTime() - 30 * 24 * 60 * 60 * 1000); // Last 30 days
+
+    const formatDate = (date) => {
+      return date.toISOString().split('T')[0];
+    };
+
+    const url = `${this.baseUrl}/site/${this.siteId}/energy?` +
+                `startDate=${formatDate(startDate)}&` +
+                `endDate=${formatDate(endDate)}&` +
+                `timeUnit=DAY&` +
+                `api_key=${this.apiKey}`;
+
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      throw new Error(`API Error: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data;
+  }
 }
 
 // UI Controller
 class PopupController {
   constructor() {
     this.chart = null;
+    this.energyChart = null;
     this.initElements();
     this.attachListeners();
   }
@@ -61,7 +86,8 @@ class PopupController {
       lastUpdate: document.getElementById('last-update-time'),
       refreshBtn: document.getElementById('refresh-btn'),
       settingsBtn: document.getElementById('settings-btn'),
-      chartCanvas: document.getElementById('energyChart')
+      chartCanvas: document.getElementById('energyChart'),
+      dailyEnergyCanvas: document.getElementById('dailyEnergyChart')
     };
   }
 
@@ -183,6 +209,87 @@ class PopupController {
     });
   }
 
+  updateDailyEnergyChart(energyData) {
+    const values = energyData.energy?.values || [];
+
+    // Filter out null values and format data
+    const chartData = values
+      .filter(item => item.value !== null && item.value !== undefined)
+      .map(item => ({
+        date: new Date(item.date),
+        value: item.value / 1000 // Convert Wh to kWh
+      }));
+
+    // Format date labels (e.g., "Oct 1", "Oct 2")
+    const labels = chartData.map(item => {
+      const month = item.date.toLocaleDateString('en-US', { month: 'short' });
+      const day = item.date.getDate();
+      return `${month} ${day}`;
+    });
+
+    const data = chartData.map(item => item.value);
+
+    // Destroy previous chart if exists
+    if (this.energyChart) {
+      this.energyChart.destroy();
+    }
+
+    // Create new chart
+    const ctx = this.elements.dailyEnergyCanvas.getContext('2d');
+    this.energyChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Energy (kWh)',
+          data: data,
+          borderColor: '#48bb78',
+          backgroundColor: 'rgba(72, 187, 120, 0.7)',
+          borderWidth: 1
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        onResize: null,
+        plugins: {
+          legend: {
+            display: false
+          },
+          tooltip: {
+            mode: 'index',
+            intersect: false,
+            callbacks: {
+              label: function(context) {
+                return `${context.parsed.y.toFixed(2)} kWh`;
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            display: true,
+            ticks: {
+              maxRotation: 45,
+              minRotation: 45,
+              maxTicksLimit: 10
+            }
+          },
+          y: {
+            display: true,
+            beginAtZero: true,
+            ticks: {
+              callback: function(value) {
+                return value.toFixed(0) + ' kWh';
+              }
+            }
+          }
+        }
+      }
+    });
+  }
+
   updateLastUpdateTime() {
     const now = new Date();
     this.elements.lastUpdate.textContent = now.toLocaleTimeString();
@@ -203,14 +310,16 @@ class PopupController {
       const api = new SolarEdgeAPI(settings.apiKey, settings.siteId);
 
       // Fetch data in parallel
-      const [powerData, energyData] = await Promise.all([
+      const [powerData, energyData24h, dailyEnergyData] = await Promise.all([
         api.getCurrentPower(),
-        api.getEnergyLast24Hours()
+        api.getEnergyLast24Hours(),
+        api.getEnergyData()
       ]);
 
       // Update UI
       this.updateCurrentPower(powerData);
-      this.updateEnergyChart(energyData);
+      this.updateEnergyChart(energyData24h);
+      this.updateDailyEnergyChart(dailyEnergyData);
       this.updateLastUpdateTime();
 
       this.showContent();
