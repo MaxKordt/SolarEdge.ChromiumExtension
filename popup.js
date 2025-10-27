@@ -141,6 +141,8 @@ class PopupController {
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        animation: false,
+        onResize: null,
         plugins: {
           legend: {
             display: false

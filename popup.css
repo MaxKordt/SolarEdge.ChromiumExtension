@@ -7,8 +7,8 @@
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  min-width: 400px;
-  max-width: 400px;
+  min-width: 600px;
+  max-width: 600px;
 }
 
 .container {
@@ -101,8 +101,9 @@ header h1 {
 }
 
 #energyChart {
-  width: 100%;
-  height: 200px;
+  width: 100% !important;
+  height: 150px !important;
+  max-height: 150px !important;
 }
 
 .last-update {
